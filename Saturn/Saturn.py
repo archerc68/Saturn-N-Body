@@ -1,13 +1,12 @@
 import numpy as np
 from tqdm import tqdm
 
-
 # Simulation parameters
-t = np.linspace(0, 5e7, int(5e5))
-steps = len(t)
-dt = t[1] - t[0]
-downsample = 10
+dt, steps = 100, int(5e7)
+downsample = int(1e2)  # Downsample points calculated to points recorded
+N = 1000    # No. light bodies
 
+print("Elapsed simulated time: " + str(dt * steps / 31556952) + " years")
 
 # Massive bodies boundary conditions
 M = (
@@ -70,7 +69,6 @@ omega[1:] = np.sqrt(6.67e-11 * M[0] / R0[1:] ** 3)
 
 
 # Light bodies boundary conditions
-N = 1000
 theta = 2 * np.pi * np.random.random(N)
 
 
@@ -98,7 +96,7 @@ def acc(r, R):
     diff = R[None, :, :] - r[:, None, :]
     dist = np.linalg.norm(diff, axis=2)
     isl = diff / (dist[..., None] ** 3)
-    a = 6.67e-11 * np.einsum('ijk, j -> ik', isl, M)
+    a = 6.67e-11 * np.einsum("ijk, j -> ik", isl, M)
     return a
 
 
@@ -118,10 +116,10 @@ def Verlet(r, v):
     cv = np.zeros_like(v)
 
     # History
-    rs = np.empty((int(steps/downsample), N, 2))
+    rs = np.empty((int(steps / downsample), N, 2))
     rs[0] = r.copy()
 
-    R = np.empty((int(steps/downsample), len(M), 2))
+    R = np.empty((int(steps / downsample), len(M), 2))
     R[0, :, 0] = R0
 
     # Substep initialisation

@@ -1,23 +1,23 @@
 import numpy as np
 from tqdm import tqdm
 
-G = 6.67e-11
-d = 384.4e6
-t = np.linspace(0, 1e7, int(1e5))
-steps = len(t)
-dt = t[1] - t[0]
-downsample = 10     # Downsample points calculated to points recorded
+# Simulation parameters
+dt, steps = 100, int(5e7)
+downsample = 10  # Downsample points calculated to points recorded
+N = 5000
+
+print("Elapsed simulated time: " + str(steps * dt / 31556952) + " years")
 
 # Massive bodies
 M = np.array([6.1e24, 7.3e22])
+d = 384.4e6
 R0 = np.array([-M[1] / np.sum(M) * d, M[0] / np.sum(M) * d])
-omega = np.sqrt(G * M[0] / R0[1] ** 3)
+omega = np.sqrt(6.67e-11 * M[0] / R0[1] ** 3)
 
 
 # Light bodies/particles
 r_min, r_max = 0.01 * R0[1], 1.3 * R0[1]
 
-N = 5000
 theta = 2 * np.pi * np.random.random(N)
 
 
@@ -44,7 +44,7 @@ def acc(r, R):
     diff = R[None, :, :] - r[:, None, :]
     dist = np.linalg.norm(diff, axis=2)
     isl = diff / (dist[..., None] ** 3)
-    a = G * np.einsum("ijk, j -> ik", isl, M)
+    a = 6.67e-11 * np.einsum("ijk, j -> ik", isl, M)
     return a
 
 
@@ -64,10 +64,10 @@ def Verlet(r, v):
     cv = np.zeros_like(v)
 
     # History
-    rs = np.empty((int(steps/downsample), N, 2))
+    rs = np.empty((int(steps / downsample), N, 2))
     rs[0] = r.copy()
 
-    R = np.empty((int(steps/downsample), 2, 2))
+    R = np.empty((int(steps / downsample), 2, 2))
     R[0, :, 0] = R0
 
     # Substep initialisation
