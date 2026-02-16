@@ -2,14 +2,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.animation import FuncAnimation
 
+# Animation parameters
+FPS = 60
+downsample = int(1e1)  # Downsample points recorded to points plotted
 
 # Loading positions from directory
 rs = np.load("Saturn/rsSaturn.npy")
 R = np.load("Saturn/RSaturn.npy")
 
 
-# Downsampling temporal resolution
-downsample = int(1)
+# Downsampling
 rsdown = rs[::downsample]
 Rdown = R[::downsample]
 
@@ -47,7 +49,7 @@ def animate(i):
 anim = FuncAnimation(
     fig,
     animate,
-    interval = 1000/60,
+    interval=1000 / FPS,
     frames=int(rs.shape[0] / downsample),
     init_func=init,
     blit=True,

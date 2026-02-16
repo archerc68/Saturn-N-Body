@@ -2,13 +2,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.animation import FuncAnimation
 
+# Animation parameters
+FPS = 60
+downsample = int(1e1)  # Downsample points recorded to points plotted
+
+# Loading positional data
 rs = np.load("Earth-Moon/rs.npy")
 R = np.load("Earth-Moon/R.npy")
 
 R0 = R[0, 0, 0] + R[0, 1, 0]
 
-# Downsampling points recorded to points plotted
-downsample = int(1e1)
+# Downsampling
 rsdown = rs[::downsample]
 Rdown = R[::downsample]
 
@@ -22,8 +26,9 @@ ax.set_aspect("equal")
 
 
 # Initialasing particles
-particles, = ax.plot([], [], 'bo', ms=6, alpha=0.25)
-heavy, = ax.plot([], [], 'ro', ms=6)
+(particles,) = ax.plot([], [], "bo", ms=6, alpha=0.25)
+(heavy,) = ax.plot([], [], "ro", ms=6)
+
 
 def init():
     particles.set_data([], [])
@@ -39,11 +44,13 @@ def animate(i):
 
 
 # Plotting
-FPS = 60
-
-anim = FuncAnimation(fig, animate, interval=1000 / FPS,
-                    frames=int(rs.shape[0] / downsample), 
-                    init_func=init)
+anim = FuncAnimation(
+    fig,
+    animate,
+    interval=1000 / FPS,
+    frames=int(rs.shape[0] / downsample),
+    init_func=init,
+)
 
 
 anim.save("Earth-Moon/Orbits.mp4", dpi=250)
