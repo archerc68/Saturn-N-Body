@@ -3,8 +3,8 @@ from tqdm import tqdm
 
 # Simulation parameters
 dt, steps = 100, int(5e7)
-downsample = int(1e2)  # Downsample points calculated to points recorded
-N = 1000    # No. light bodies
+downsample = 10  # Downsample points calculated to points recorded
+N = 2500  # No. light bodies
 
 print("Elapsed simulated time: " + str(dt * steps / 31556952) + " years")
 
@@ -124,7 +124,7 @@ def Verlet(r, v):
 
     # Substep initialisation
     R_sub = np.empty((downsample, len(M), 2))
-    dt_sub = np.linspace(0, dt * downsample, downsample)
+    dt_sub = np.arange(downsample) * dt
 
     for i in tqdm(range(1, int(steps / downsample))):
         # Heavy positions

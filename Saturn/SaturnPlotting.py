@@ -4,7 +4,7 @@ from matplotlib.animation import FuncAnimation
 
 # Animation parameters
 FPS = 60
-downsample = int(1e1)  # Downsample points recorded to points plotted
+downsample = int(1e0)  # Downsample points recorded to points plotted
 
 # Loading positions from directory
 rs = np.load("Saturn/rsSaturn.npy")
@@ -57,6 +57,6 @@ anim = FuncAnimation(
 
 
 # Saving .mp4 to directory
-anim.save("Saturn.mp4", dpi=250)
+anim.save("Saturn/Saturn.mp4", dpi=250)
 
 print("Plotted")
