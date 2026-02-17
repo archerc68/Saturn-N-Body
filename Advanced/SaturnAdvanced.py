@@ -1,8 +1,9 @@
 import numpy as np
-from tqdm import tqdm
+from numba import njit
+from numba_progress import ProgressBar
 
 # Simulation parameters
-dt, steps = 100, int(5e4)
+dt, steps = 100, int(5e3)
 downsample = 1  # Downsample points calculated to points recorded
 N = 1000  # No. light bodies
 
@@ -92,29 +93,44 @@ v[:, 1] *= np.cos(theta)
 
 
 # Acceleration of light bodies
+@njit(nogil=True, cache=True)
 def acc(r, R):
     diff = R[None, :, :] - r[:, None, :]
     dx, dy = diff[..., 0], diff[..., 1]
-    dist = np.sqrt(dx * dx + dy * dy + 1e8)     # Softened gravity
+    dist = np.sqrt(dx * dx + dy * dy + 1e8)  # Softened gravity
     isl = diff / (dist[..., None] ** 3)
-    a = 6.67e-11 * np.einsum("ijk, j -> ik", isl, M)
+    a = 6.67e-11 * np.sum(M[None, :, None] * isl, axis=1)
     return a
 
 
 # r += dr ()
+@njit(nogil=True, cache=True)
 def Kahan(r, dr, c):
     y = dr - c
     t = r + y
-    c = (t - r) - y
+    z = t.copy() - r
+    c = z.copy() - y
     r = t.copy()
     return r, c
 
 
 # Numerical integrator
-def Verlet(r, v):
+@njit(nogil=True, cache=True)
+def ForestRuth(r, v, progress_proxy):
     # Setting up Kahan
     cr = np.zeros_like(r)
     cv = np.zeros_like(v)
+
+    # Setting up FR
+
+    c1 = 1 / (2 * (2 - 2 ** (1 / 3)))
+    c2 = (1 - 2 ** (1 / 3)) / (2 * (2 - 2 ** (1 / 3)))
+    c3 = c2
+    c4 = c1
+
+    d1 = 1 / (2 - 2 ** (1 / 3))
+    d2 = -(2 ** (1 / 3)) / (2 - 2 ** (1 / 3))
+    d3 = d1
 
     # History
     rs = np.empty((int(steps / downsample), N, 2))
@@ -127,7 +143,9 @@ def Verlet(r, v):
     R_sub = np.empty((downsample, len(M), 2))
     dt_sub = np.arange(downsample) * dt
 
-    for i in tqdm(range(1, int(steps / downsample))):
+    progress_proxy.update(1)
+
+    for i in range(1, int(steps / downsample)):
         # Heavy positions
         t_sub = dt_sub + (i - 1) * dt * downsample
         R_sub[..., 0] = R0[None, :] * np.cos(omega * t_sub[:, None])
@@ -135,28 +153,38 @@ def Verlet(r, v):
 
         # Light positions
         for j in range(downsample):
-            a0 = acc(r, R_sub[j])
-            dr = v * dt + 0.5 * a0 * dt * dt
-            r, cr = Kahan(r, dr, cr)
+            a = acc(r, R_sub[j])
+            v, cv = Kahan(v, (dt * c1) * a, cv)
+            r, cr = Kahan(r, (dt * d1) * v, cr)
 
-            a1 = acc(r, R_sub[j])
-            dv = 0.5 * (a0 + a1) * dt
-            v, cv = Kahan(v, dv, cv)
+            a = acc(r, R_sub[j])
+            v, cv = Kahan(v, (dt * c2) * a, cv)
+            r, cr = Kahan(r, (dt * d2) * v, cr)
+
+            a = acc(r, R_sub[j])
+            v, cv = Kahan(v, (dt * c3) * a, cv)
+            r, cr = Kahan(r, (dt * d3) * v, cr)
+
+            a = acc(r, R_sub[j])
+            v, cv = Kahan(v, (dt * c4) * a, cv)
 
         # Storing positions
         rs[i] = r.copy()
         R[i] = R_sub[-1].copy()
+
+        progress_proxy.update(1)
 
     print("Done")
 
     return rs, R
 
 
-rs, R = Verlet(r, v)
+with ProgressBar(total=int(steps / downsample)) as progress:
+    rs, R = ForestRuth(r, v, progress)
 
 
 # Saving positions to directory
-np.save("Saturn/RSaturn", R)
-np.save("Saturn/rsSaturn", rs)
+np.save("Advanced/RSaturn", R)
+np.save("Advanced/rsSaturn", rs)
 
 print("Saved")

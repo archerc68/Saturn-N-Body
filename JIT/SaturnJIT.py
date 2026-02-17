@@ -1,10 +1,11 @@
 import numpy as np
-from tqdm import tqdm
+from numba import njit
+from numba_progress import ProgressBar
 
 # Simulation parameters
 dt, steps = 100, int(5e4)
 downsample = 1  # Downsample points calculated to points recorded
-N = 1000  # No. light bodies
+N = 2500  # No. light bodies
 
 print("Elapsed simulated time: " + str(dt * steps / 31556952) + " years")
 
@@ -92,26 +93,30 @@ v[:, 1] *= np.cos(theta)
 
 
 # Acceleration of light bodies
+@njit(nogil=True, cache=True)
 def acc(r, R):
     diff = R[None, :, :] - r[:, None, :]
     dx, dy = diff[..., 0], diff[..., 1]
     dist = np.sqrt(dx * dx + dy * dy + 1e8)     # Softened gravity
     isl = diff / (dist[..., None] ** 3)
-    a = 6.67e-11 * np.einsum("ijk, j -> ik", isl, M)
+    a = 6.67e-11 * np.sum(M[None, :, None] * isl, axis=1)
     return a
 
 
 # r += dr ()
+@njit(nogil=True, cache=True)
 def Kahan(r, dr, c):
     y = dr - c
     t = r + y
-    c = (t - r) - y
+    z = t.copy() - r
+    c = z.copy() - y
     r = t.copy()
     return r, c
 
 
 # Numerical integrator
-def Verlet(r, v):
+@njit(nogil=True, cache=True)
+def Verlet(r, v, progress_proxy):
     # Setting up Kahan
     cr = np.zeros_like(r)
     cv = np.zeros_like(v)
@@ -127,7 +132,9 @@ def Verlet(r, v):
     R_sub = np.empty((downsample, len(M), 2))
     dt_sub = np.arange(downsample) * dt
 
-    for i in tqdm(range(1, int(steps / downsample))):
+    progress_proxy.update(1)
+
+    for i in range(1, int(steps / downsample)):
         # Heavy positions
         t_sub = dt_sub + (i - 1) * dt * downsample
         R_sub[..., 0] = R0[None, :] * np.cos(omega * t_sub[:, None])
@@ -147,16 +154,19 @@ def Verlet(r, v):
         rs[i] = r.copy()
         R[i] = R_sub[-1].copy()
 
+        progress_proxy.update(1)
+
     print("Done")
 
     return rs, R
 
 
-rs, R = Verlet(r, v)
+with ProgressBar(total=int(steps / downsample)) as progress:
+    rs, R = Verlet(r, v, progress)
 
 
 # Saving positions to directory
-np.save("Saturn/RSaturn", R)
-np.save("Saturn/rsSaturn", rs)
+np.save("JIT/RSaturn", R)
+np.save("JIT/rsSaturn", rs)
 
 print("Saved")

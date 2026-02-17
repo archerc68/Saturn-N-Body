@@ -42,7 +42,8 @@ v[:, 1] *= np.cos(theta)
 # Acceleration of light bodies
 def acc(r, R):
     diff = R[None, :, :] - r[:, None, :]
-    dist = np.linalg.norm(diff, axis=2)
+    dx, dy = diff[..., 0], diff[..., 1]
+    dist = np.sqrt(dx * dx + dy * dy + 1e8)     # Softened gravity
     isl = diff / (dist[..., None] ** 3)
     a = 6.67e-11 * np.einsum("ijk, j -> ik", isl, M)
     return a
